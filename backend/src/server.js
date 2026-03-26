@@ -16,12 +16,19 @@ dotenv.config();
 const corsOrigin = (process.env.CORS_ORIGIN?.split(',') ?? [])
   .map((s) => s.trim())
   .filter(Boolean);
+
+const normalizeOrigin = (origin) => {
+  if (/^https?:\/\//i.test(origin)) return origin;
+  return `https://${origin}`;
+};
+
+const corsOriginNormalized = corsOrigin.map(normalizeOrigin);
 const corsOriginOption =
-  corsOrigin.length === 0
+  corsOriginNormalized.length === 0
     ? 'http://localhost:5173'
-    : corsOrigin.length === 1
-      ? corsOrigin[0]
-      : corsOrigin;
+    : corsOriginNormalized.length === 1
+      ? corsOriginNormalized[0]
+      : corsOriginNormalized;
 
 const app = express();
 const httpServer = createServer(app);
