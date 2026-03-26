@@ -1,5 +1,7 @@
-// Default /api uses Vite dev proxy → backend :5000 (works with https:// on LAN)
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// In production on Vercel, prefer same-origin /api rewrite to avoid CORS issues.
+// In local/dev, allow explicit VITE_API_URL override.
+const envApiUrl = import.meta.env.VITE_API_URL?.trim();
+const API_URL = import.meta.env.PROD ? '/api' : envApiUrl || '/api';
 
 // Debug: Log the API URL being used
 console.log('API_URL loaded:', API_URL);
