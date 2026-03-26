@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 import '../styles/Auth.css';
 import AppShell from '../components/AppShell';
+import { Link } from 'react-router-dom';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -89,7 +90,7 @@ export default function Login() {
           </form>
 
           <p className="auth-link">
-            Don't have an account? <a href="/register">Register here</a>
+            Don't have an account? <Link to="/register">Register here</Link>
           </p>
         </div>
       </div>
