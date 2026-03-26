@@ -24,6 +24,13 @@ export const createPeerConnection = () => {
  * @returns {Promise<MediaStream>}
  */
 export const getUserMedia = async (constraints = { audio: true, video: true }) => {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    const hint =
+      typeof window !== 'undefined' && !window.isSecureContext
+        ? ' Open the app with https:// (e.g. https://YOUR_IP:5173), not http://.'
+        : '';
+    throw new Error(`Camera/microphone are not available on this page.${hint}`);
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     console.log('✓ User media obtained:', stream.getTracks().map((t) => t.kind));

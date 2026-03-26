@@ -1,4 +1,4 @@
-# Contributing to Interest-Based Video Chat
+# Contributing to ConnectSphere
 
 We appreciate your interest in contributing to this project! This document provides guidelines and instructions for development.
 
@@ -21,7 +21,7 @@ We appreciate your interest in contributing to this project! This document provi
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd interest-based-video-chat
+cd connectsphere
 
 # Setup both backend and frontend
 cd backend
@@ -312,3 +312,4 @@ npm install
 ---
 
 **Thank you for contributing!** 🚀
+

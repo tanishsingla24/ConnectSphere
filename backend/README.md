@@ -1,4 +1,4 @@
-# Interest-Based Video Chat - Backend
+# ConnectSphere - Backend
 
 Backend server for the interest-based one-to-one video conferencing platform.
 
@@ -204,3 +204,4 @@ The matching is done in O(n) time where n is the queue size.
 - Call history and statistics
 - User blocking and reporting
 - Admin dashboard
+

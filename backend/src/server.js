@@ -6,22 +6,34 @@ import { Server as SocketIOServer } from 'socket.io';
 import { connectDB } from './config/mongodb.js';
 import { apiLimiter, errorHandler, notFoundHandler } from './middleware/index.js';
 import authRoutes from './routes/auth.js';
+import callsRoutes from './routes/calls.js';
 import { setupSocketHandlers } from './sockets/signaling.js';
 
 // Load environment variables
 dotenv.config();
 
+/** Comma-separated CORS_ORIGIN values (e.g. http://localhost:5173,https://192.168.1.5:5173) */
+const corsOrigin = (process.env.CORS_ORIGIN?.split(',') ?? [])
+  .map((s) => s.trim())
+  .filter(Boolean);
+const corsOriginOption =
+  corsOrigin.length === 0
+    ? 'http://localhost:5173'
+    : corsOrigin.length === 1
+      ? corsOrigin[0]
+      : corsOrigin;
+
 const app = express();
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: corsOriginOption,
     credentials: true,
   },
 });
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+app.use(cors({ origin: corsOriginOption }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(apiLimiter);
@@ -31,6 +43,7 @@ await connectDB();
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/calls', callsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -50,9 +63,10 @@ app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
+// Bind to 0.0.0.0 so the server accepts connections from other machines on the LAN
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`\n╔════════════════════════════════════════╗`);
-  console.log(`║  Interest-Based Video Chat Backend   ║`);
+  console.log(`║  ConnectSphere Backend   ║`);
   console.log(`║  Server running on port ${PORT}       ║`);
   console.log(`║  Environment: ${process.env.NODE_ENV || 'development'}              ║`);
   console.log(`╚════════════════════════════════════════╝\n`);
@@ -65,3 +79,4 @@ process.on('SIGTERM', async () => {
     console.log('✓ HTTP server closed');
   });
 });
+

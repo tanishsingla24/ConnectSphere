@@ -1,23 +1,19 @@
 import User from '../models/User.js';
 import { generateToken } from '../middleware/auth.js';
-import { validateRegistration, validateLogin } from '../utils/validators.js';
+import bcryptjs from 'bcryptjs';
 
 /**
  * Register a new user
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const register = async (req, res, next) => {
   try {
     const { email, password, fullName, interests } = req.body;
 
     // Validate input
-    const validation = validateRegistration({ email, password, fullName, interests });
-    if (!validation.valid) {
+    if (!email || !password || !fullName || !interests || interests.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: validation.errors,
+        message: 'All fields are required and at least one interest is needed',
       });
     }
 
@@ -26,29 +22,35 @@ export const register = async (req, res, next) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists',
+        message: 'Email already registered',
       });
     }
 
+    // Hash password
+    const salt = await bcryptjs.genSalt(10);
+    const passwordHash = await bcryptjs.hash(password, salt);
+
     // Create new user
-    const user = new User({
+    const newUser = new User({
       email,
-      passwordHash: password,
+      passwordHash,
       fullName,
       interests,
-      isVerified: true, // Auto-verify for demo purposes
     });
 
-    await user.save();
+    await newUser.save();
 
     // Generate token
-    const token = generateToken(user._id.toString());
+    const token = generateToken(newUser._id);
+
+    // Return user without password
+    const userResponse = newUser.toObject();
+    delete userResponse.passwordHash;
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
       token,
-      user: user.toJSON(),
+      user: userResponse,
     });
   } catch (error) {
     next(error);
@@ -57,25 +59,22 @@ export const register = async (req, res, next) => {
 
 /**
  * Login user
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     // Validate input
-    const validation = validateLogin({ email, password });
-    if (!validation.valid) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: validation.errors,
+        message: 'Email and password are required',
       });
     }
 
-    // Find user and include password
+    // Find user by email (include password for comparison)
     const user = await User.findOne({ email }).select('+passwordHash');
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -83,16 +82,17 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Check if banned
+    // Check if user is banned
     if (user.isBanned) {
       return res.status(403).json({
         success: false,
-        message: 'This account has been banned',
+        message: 'Your account has been banned',
       });
     }
 
-    // Compare password
-    const isPasswordValid = await user.comparePassword(password);
+    // Verify password
+    const isPasswordValid = await bcryptjs.compare(password, user.passwordHash);
+
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -101,13 +101,16 @@ export const login = async (req, res, next) => {
     }
 
     // Generate token
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user._id);
 
-    res.status(200).json({
+    // Return user without password
+    const userResponse = user.toObject();
+    delete userResponse.passwordHash;
+
+    res.json({
       success: true,
-      message: 'Login successful',
       token,
-      user: user.toJSON(),
+      user: userResponse,
     });
   } catch (error) {
     next(error);
@@ -116,12 +119,11 @@ export const login = async (req, res, next) => {
 
 /**
  * Get current user profile
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const getCurrentUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.userId);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -129,9 +131,9 @@ export const getCurrentUser = async (req, res, next) => {
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      user: user.toJSON(),
+      user,
     });
   } catch (error) {
     next(error);
@@ -140,14 +142,26 @@ export const getCurrentUser = async (req, res, next) => {
 
 /**
  * Update user profile
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const updateProfile = async (req, res, next) => {
   try {
     const { fullName, interests } = req.body;
 
-    const user = await User.findById(req.user.userId);
+    // Validate input
+    if (!fullName && (!interests || interests.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one field must be updated',
+      });
+    }
+
+    // Update user
+    const updateData = {};
+    if (fullName) updateData.fullName = fullName;
+    if (interests && interests.length > 0) updateData.interests = interests;
+
+    const user = await User.findByIdAndUpdate(req.userId, updateData, { new: true });
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -155,21 +169,11 @@ export const updateProfile = async (req, res, next) => {
       });
     }
 
-    if (fullName) user.fullName = fullName;
-    if (interests && Array.isArray(interests) && interests.length > 0) {
-      user.interests = interests;
-    }
-
-    await user.save();
-
-    res.status(200).json({
+    res.json({
       success: true,
-      message: 'Profile updated successfully',
-      user: user.toJSON(),
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
-
-export default { register, login, getCurrentUser, updateProfile };

@@ -1,4 +1,4 @@
-# Interest-Based Video Chat - Frontend
+# ConnectSphere - Frontend
 
 Frontend application for the interest-based one-to-one video conferencing platform using React and Vite.
 
@@ -230,3 +230,4 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 ## License
 
 Proprietary - All rights reserved
+

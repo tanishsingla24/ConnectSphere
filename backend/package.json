@@ -1,5 +1,5 @@
 {
-  "name": "interest-based-video-chat-backend",
+  "name": "connectsphere-backend",
   "version": "1.0.0",
   "description": "Backend for interest-based one-to-one video chat platform",
   "type": "module",
@@ -20,3 +20,4 @@
   },
   "devDependencies": {}
 }
+

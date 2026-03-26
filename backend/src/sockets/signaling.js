@@ -1,5 +1,12 @@
 import User from '../models/User.js';
 import * as matchingService from '../services/matchingService.js';
+import Call from '../models/Call.js';
+
+const canonicalPair = (id1, id2) => {
+  const a = String(id1);
+  const b = String(id2);
+  return a < b ? { userA: a, userB: b } : { userA: b, userB: a };
+};
 
 /**
  * Setup Socket.IO event handlers for WebRTC signaling and matching
@@ -33,6 +40,11 @@ export const setupSocketHandlers = (io) => {
         user.inCall = false;
         await user.save();
 
+        // Make signaling reliable: each socket joins a room named after its userId.
+        // Then the server can emit offers/answers/ICE to io.to(targetUserId).
+        socket.data.userId = userId;
+        socket.join(userId);
+
         // Add to matching queue
         matchingService.addToQueue(userId, user);
 
@@ -57,22 +69,40 @@ export const setupSocketHandlers = (io) => {
           matchingService.removeFromQueue(userId);
           matchingService.removeFromQueue(match.matchedUserId);
 
-          // Get matched user's socket ID
-          const matchedUserSocketId = matchingService.getUserFromQueue(match.matchedUserId)?.user.socketId;
+          // Create (or reuse) a call record for history/dashboard.
+          // We store participants as an unordered pair so we can find it later
+          // regardless of who starts the WebRTC offer.
+          const pair = canonicalPair(userId, match.matchedUserId);
+          const existingCall = await Call.findOne({
+            userA: pair.userA,
+            userB: pair.userB,
+            endedAt: null,
+          });
 
-          // Get the socket of the matched user
-          const matchedUserSocket = io.to(matchedUserSocketId || match.matchedUserId);
+          if (!existingCall) {
+            await Call.create({
+              userA: pair.userA,
+              userB: pair.userB,
+              status: 'matched',
+              commonInterests: match.commonInterests,
+              startedAt: null,
+              endedAt: null,
+            });
+          } else if (match.commonInterests?.length) {
+            existingCall.commonInterests = match.commonInterests;
+            await existingCall.save();
+          }
 
-          // Emit match event to both users
-          socket.emit('match-found', {
+          // Emit match event to both users (by their userId rooms).
+          io.to(userId).emit('match-found', {
             matchedUserId: match.matchedUserId,
-            matchedUser: { ...matchedUser.toJSON(), socketId: match.matchedUserId },
+            matchedUser: matchedUser.toJSON(),
             commonInterests: match.commonInterests,
           });
 
-          io.to(matchedUserSocketId).emit('match-found', {
+          io.to(match.matchedUserId).emit('match-found', {
             matchedUserId: userId,
-            matchedUser: { ...currentUser.toJSON(), socketId: socket.id },
+            matchedUser: currentUser.toJSON(),
             commonInterests: match.commonInterests,
           });
         } else {
@@ -115,19 +145,46 @@ export const setupSocketHandlers = (io) => {
      */
     socket.on('offer', (data) => {
       const { targetUserId, offer } = data;
+      const callerUserId = socket.data?.userId;
+
       console.log(`→ Relaying offer from ${socket.id} to ${targetUserId}`);
 
-      // Get the socket of target user and send offer
-      const targetSocket = Array.from(io.sockets.sockets.values()).find(
-        (s) => s.data?.userId === targetUserId
-      );
+      // Record call start for history.
+      (async () => {
+        try {
+          if (!callerUserId || !targetUserId) return;
+          const pair = canonicalPair(callerUserId, targetUserId);
 
-      if (targetSocket) {
-        targetSocket.emit('offer', { offer, senderId: socket.id });
-      } else {
-        // Find by socket ID directly
-        io.to(targetUserId).emit('offer', { offer, senderId: socket.id });
-      }
+          const ongoingCall = await Call.findOne({
+            userA: pair.userA,
+            userB: pair.userB,
+            endedAt: null,
+          }).sort({ createdAt: -1 });
+
+          const now = new Date();
+          if (ongoingCall) {
+            ongoingCall.caller = callerUserId;
+            ongoingCall.callee = targetUserId;
+            ongoingCall.status = 'calling';
+            ongoingCall.startedAt = ongoingCall.startedAt || now;
+            await ongoingCall.save();
+          } else {
+            await Call.create({
+              userA: pair.userA,
+              userB: pair.userB,
+              caller: callerUserId,
+              callee: targetUserId,
+              status: 'calling',
+              startedAt: now,
+              endedAt: null,
+            });
+          }
+        } catch (err) {
+          console.error('Failed to record call start:', err);
+        }
+      })();
+
+      io.to(targetUserId).emit('offer', { offer, senderId: socket.id });
     });
 
     /**
@@ -137,16 +194,7 @@ export const setupSocketHandlers = (io) => {
     socket.on('answer', (data) => {
       const { targetUserId, answer } = data;
       console.log(`→ Relaying answer from ${socket.id} to ${targetUserId}`);
-
-      const targetSocket = Array.from(io.sockets.sockets.values()).find(
-        (s) => s.data?.userId === targetUserId
-      );
-
-      if (targetSocket) {
-        targetSocket.emit('answer', { answer, senderId: socket.id });
-      } else {
-        io.to(targetUserId).emit('answer', { answer, senderId: socket.id });
-      }
+      io.to(targetUserId).emit('answer', { answer, senderId: socket.id });
     });
 
     /**
@@ -155,16 +203,7 @@ export const setupSocketHandlers = (io) => {
      */
     socket.on('ice-candidate', (data) => {
       const { targetUserId, candidate } = data;
-
-      const targetSocket = Array.from(io.sockets.sockets.values()).find(
-        (s) => s.data?.userId === targetUserId
-      );
-
-      if (targetSocket) {
-        targetSocket.emit('ice-candidate', { candidate, senderId: socket.id });
-      } else {
-        io.to(targetUserId).emit('ice-candidate', { candidate, senderId: socket.id });
-      }
+      io.to(targetUserId).emit('ice-candidate', { candidate, senderId: socket.id });
     });
 
     /**
@@ -176,23 +215,41 @@ export const setupSocketHandlers = (io) => {
         const { userId, targetUserId } = data;
         console.log(`✓ Call ended between ${userId} and ${targetUserId}`);
 
-        // Update user status
-        const user = await User.findById(userId);
-        if (user) {
-          user.inCall = false;
-          await user.save();
+        // Update both users so matching can work again.
+        const [endingUser, otherUser] = await Promise.all([
+          User.findById(userId),
+          User.findById(targetUserId),
+        ]);
+
+        if (endingUser) {
+          endingUser.inCall = false;
+          await endingUser.save();
+        }
+        if (otherUser) {
+          otherUser.inCall = false;
+          await otherUser.save();
         }
 
-        // Notify other peer
-        const targetSocket = Array.from(io.sockets.sockets.values()).find(
-          (s) => s.data?.userId === targetUserId
+        // Close call history record.
+        const pair = canonicalPair(userId, targetUserId);
+        await Call.findOneAndUpdate(
+          {
+            userA: pair.userA,
+            userB: pair.userB,
+            endedAt: null,
+          },
+          {
+            $set: {
+              endedAt: new Date(),
+              endedBy: userId,
+              status: 'ended',
+            },
+          },
+          { sort: { createdAt: -1 } }
         );
 
-        if (targetSocket) {
-          targetSocket.emit('call-ended', { message: 'Other user ended call' });
-        } else {
-          io.to(targetUserId).emit('call-ended', { message: 'Other user ended call' });
-        }
+        // Notify other peer (by userId room)
+        io.to(targetUserId).emit('call-ended', { message: 'Other user ended call' });
 
         // Remove from queue if still there
         matchingService.removeFromQueue(userId);

@@ -1,4 +1,4 @@
-# Interest-Based Video Chat Platform
+# ConnectSphere Platform
 
 A production-quality, interest-based one-to-one video conferencing platform for authenticated users. Similar to Omegle but with proper authentication, interest matching, and WebRTC-based peer-to-peer video streaming.
 
@@ -14,7 +14,7 @@ This monorepo contains a complete, scalable video conferencing solution with:
 ## 📁 Project Structure
 
 ```
-interest-based-video-chat/
+connectsphere/
 ├── backend/
 │   ├── src/
 │   │   ├── config/           # Database configuration
@@ -395,3 +395,4 @@ Built as a production-quality demonstration of:
 **Last Updated:** February 2026
 **Status:** Production Ready ✅
 Interest-based 1-to-1 video conferencing app (MERN + WebRTC)
+

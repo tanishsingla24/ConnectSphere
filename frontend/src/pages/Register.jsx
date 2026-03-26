@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 import '../styles/Auth.css';
+import AppShell from '../components/AppShell';
 
 const COMMON_INTERESTS = [
   'Gaming',
@@ -74,82 +75,84 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h1>Register</h1>
+    <AppShell pageTitle="Create Account">
+      <div className="auth-container -mt-2">
+        <div className="auth-card">
+          <h1>Register</h1>
 
-        {error && <div className="error-message">{error}</div>}
+          {error && <div className="error-message">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="fullName">Full Name:</label>
-            <input
-              id="fullName"
-              type="text"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              required
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="email">Email:</label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Enter your email"
-              required
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password:</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password (min 6 characters)"
-              required
-              minLength="6"
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Select Your Interests:</label>
-            <div className="interests-grid">
-              {COMMON_INTERESTS.map((interest) => (
-                <label key={interest} className="interest-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={formData.interests.includes(interest)}
-                    onChange={() => toggleInterest(interest)}
-                    disabled={isLoading}
-                  />
-                  {interest}
-                </label>
-              ))}
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="fullName">Full Name:</label>
+              <input
+                id="fullName"
+                type="text"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                placeholder="Enter your full name"
+                required
+                disabled={isLoading}
+              />
             </div>
-          </div>
 
-          <button type="submit" disabled={isLoading} className="submit-button">
-            {isLoading ? 'Registering...' : 'Register'}
-          </button>
-        </form>
+            <div className="form-group">
+              <label htmlFor="email">Email:</label>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
+                required
+                disabled={isLoading}
+              />
+            </div>
 
-        <p className="auth-link">
-          Already have an account? <a href="/login">Login here</a>
-        </p>
+            <div className="form-group">
+              <label htmlFor="password">Password:</label>
+              <input
+                id="password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password (min 6 characters)"
+                required
+                minLength="6"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Select Your Interests:</label>
+              <div className="interests-grid">
+                {COMMON_INTERESTS.map((interest) => (
+                  <label key={interest} className="interest-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.interests.includes(interest)}
+                      onChange={() => toggleInterest(interest)}
+                      disabled={isLoading}
+                    />
+                    {interest}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <button type="submit" disabled={isLoading} className="submit-button">
+              {isLoading ? 'Registering...' : 'Register'}
+            </button>
+          </form>
+
+          <p className="auth-link">
+            Already have an account? <a href="/login">Login here</a>
+          </p>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

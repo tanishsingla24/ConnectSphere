@@ -5,6 +5,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VideoChat from './pages/VideoChat';
+import AppShell from './components/AppShell';
+import Feed from './pages/Feed';
+import Explore from './pages/Explore';
+import Connections from './pages/Connections';
+import Profile from './pages/Profile';
+import Notifications from './pages/Notifications';
+import Messages from './pages/Messages';
 import './styles/main.css';
 
 /**
@@ -32,14 +39,65 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
-          path="/video-chat"
+          path="/feed"
           element={
             <ProtectedRoute>
-              <VideoChat />
+              <Feed />
             </ProtectedRoute>
           }
         />
-        <Route path="/interests" element={<Navigate to="/video-chat" replace />} />
+        <Route
+          path="/explore"
+          element={
+            <ProtectedRoute>
+              <Explore />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/calls"
+          element={
+            <ProtectedRoute>
+              <AppShell pageTitle="Calls">
+                <VideoChat />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/connections"
+          element={
+            <ProtectedRoute>
+              <Connections />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute>
+              <Messages />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/video-chat" element={<Navigate to="/calls" replace />} />
+        <Route path="/interests" element={<Navigate to="/calls" replace />} />
         <Route path="/" element={<Navigate to="/video-chat" replace />} />
       </Routes>
     </Router>

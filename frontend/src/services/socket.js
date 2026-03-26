@@ -1,6 +1,10 @@
 import io from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+// Same origin + Vite proxy in dev; set VITE_SOCKET_URL for production or direct :5000
+const envSocket = import.meta.env.VITE_SOCKET_URL?.trim();
+const SOCKET_URL =
+  envSocket ||
+  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173');
 
 let socket = null;
 

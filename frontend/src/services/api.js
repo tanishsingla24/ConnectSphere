@@ -1,4 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Default /api uses Vite dev proxy → backend :5000 (works with https:// on LAN)
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+// Debug: Log the API URL being used
+console.log('API_URL loaded:', API_URL);
+console.log('Environment:', import.meta.env.MODE);
 
 /**
  * Make API request with token
@@ -24,7 +29,25 @@ const apiRequest = async (endpoint, options = {}) => {
       headers,
     });
 
-    const data = await response.json();
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    let data = {};
+
+    if (contentType && contentType.includes('application/json')) {
+      const text = await response.text();
+      if (text) {
+        data = JSON.parse(text);
+      }
+    } else {
+      const text = await response.text();
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { message: text };
+        }
+      }
+    }
 
     if (!response.ok) {
       throw new Error(data.message || `HTTP Error: ${response.status}`);
@@ -98,4 +121,10 @@ export const healthCheck = async () => {
   }
 };
 
-export default { authAPI, healthCheck, apiRequest };
+export const callsAPI = {
+  history: async () => {
+    return apiRequest('/calls/history');
+  },
+};
+
+export default { authAPI, healthCheck, callsAPI, apiRequest };
