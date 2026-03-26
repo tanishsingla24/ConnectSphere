@@ -32,6 +32,26 @@ const corsOriginOption =
 
 const app = express();
 const httpServer = createServer(app);
+
+// CORS-enabled origin matcher
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // Allow non-browser tools (curl, server-to-server)
+  return corsOriginNormalized.includes(origin);
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      console.log('CORS origin allowed:', origin || 'no-origin');
+      callback(null, origin || true);
+    } else {
+      console.warn('CORS origin denied:', origin);
+      callback(new Error('Not allowed by CORS'), false);
+    }
+  },
+  credentials: true,
+};
+
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: corsOriginOption,
@@ -40,7 +60,7 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // Middleware
-app.use(cors({ origin: corsOriginOption }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(apiLimiter);
