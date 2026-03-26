@@ -23,20 +23,30 @@ const normalizeOrigin = (origin) => {
 };
 
 const corsOriginNormalized = corsOrigin.map(normalizeOrigin);
+const fallbackAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://localhost:5173',
+  'https://127.0.0.1:5173',
+  ...(process.env.FRONTEND_URL ? [normalizeOrigin(process.env.FRONTEND_URL)] : []),
+  ...(process.env.VERCEL_URL ? [normalizeOrigin(process.env.VERCEL_URL)] : []),
+].filter(Boolean);
+const allowedOrigins = [...new Set([...corsOriginNormalized, ...fallbackAllowedOrigins])];
+const allowedOriginRegex = [/^https:\/\/([a-z0-9-]+\.)*vercel\.app$/i];
 const corsOriginOption =
-  corsOriginNormalized.length === 0
-    ? 'http://localhost:5173'
-    : corsOriginNormalized.length === 1
-      ? corsOriginNormalized[0]
-      : corsOriginNormalized;
+  allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins;
 
 const app = express();
 const httpServer = createServer(app);
 
+// Needed when running behind proxies/load balancers (Railway/Vercel)
+app.set('trust proxy', 1);
+
 // CORS-enabled origin matcher
 const isOriginAllowed = (origin) => {
   if (!origin) return true; // Allow non-browser tools (curl, server-to-server)
-  return corsOriginNormalized.includes(origin);
+  if (allowedOrigins.includes(origin)) return true;
+  return allowedOriginRegex.some((pattern) => pattern.test(origin));
 };
 
 const corsOptions = {
@@ -49,8 +59,14 @@ const corsOptions = {
       callback(new Error('Not allowed by CORS'), false);
     }
   },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
+  optionsSuccessStatus: 200,
 };
+
+// Allow HTTP OPTIONS on all routes (preflight)
+app.options('*', cors(corsOptions));
 
 const io = new SocketIOServer(httpServer, {
   cors: {
